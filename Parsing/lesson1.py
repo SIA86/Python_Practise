@@ -1,3 +1,9 @@
+"""
+Using Request, BeautifulSoup and Lxml modules parse the https://www.python.org/ and 
+catch the string: "Python is a programming language that lets you work quickly
+and integrate systems more effectively."
+"""
+
 import requests
 from bs4 import BeautifulSoup as BS
 
@@ -8,7 +14,9 @@ def get_html(url):
 
 def get_data(text):
     soup = BS(text, 'lxml')
-    return soup.find('div', id='touchnav-wrapper').find('header').find('div').find("p").text
+    p = soup.find('div', id='touchnav-wrapper').find('header').find('div').find_all('div')[16].find('p').text
+    return p
+    
 
 
 def main():
