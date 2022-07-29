@@ -14,7 +14,7 @@ def get_html(url):
 
 def get_data(text):
     soup = BS(text, 'lxml')
-    p = soup.find('div', id='touchnav-wrapper').find('header').find('div').find_all('div')[16].find('p').text
+    p = soup.find('div', class_="introduction").find('p').text
     return p
     
 
