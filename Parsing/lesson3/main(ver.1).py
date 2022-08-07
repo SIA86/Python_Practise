@@ -16,7 +16,7 @@ def get_html(url):
 
 
 def writer(data):
-    with open("samorez.csv", 'a', encoding='cp1251', newline='') as f:
+    with open("samorez.csv", 'a', encoding='utf-8', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['Article', 'Name', 'Price'])
         writer.writerow({"Article": data["art"],
                          "Name": data["name"],

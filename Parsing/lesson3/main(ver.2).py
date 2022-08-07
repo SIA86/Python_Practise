@@ -18,7 +18,7 @@ def get_html(url):
 
 
 def writer(data):
-    with open("currency.csv", 'a', newline='') as f:
+    with open("currency.csv", 'a', encoding='utf-8', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['Name', 'Last Price', 'Price Change', 'Volume'])
         writer.writerow({"Name": data["Name"],
                          "Last Price": data["Last_price"],
