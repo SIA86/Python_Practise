@@ -1,16 +1,15 @@
-from tkinter import *
-import tkinter.ttk as ttk
-from turtle import width
+import tkinter as tk       
 
-root = Tk()
+class Application(tk.Frame):              
+    def __init__(self, master=None):
+        tk.Frame.__init__(self, master)   
+        self.grid()                       
+        self.createWidgets()
 
-style = ttk.Style()
-print(style.layout('TButton'))
-print(style.lookup('Tbutton'))
+    def createWidgets(self):
+        self.quitButton = tk.Button(self, text='Quit', command=self.quit)            
+        self.quitButton.grid()            
 
-button = ttk.Button(root, text="hello")
-
-#print(button.configure().keys())
-
-
-#root.mainloop()
+app = Application()                       
+app.master.title('Sample application')    
+app.mainloop()                          
