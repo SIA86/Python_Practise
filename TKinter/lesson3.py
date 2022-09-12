@@ -1,14 +1,24 @@
-import tkinter as tk
+from tkinter import *
+import tkinter.ttk as ttk
 
-window = tk.Tk()
 
-frame1 = tk.Frame(master=window, width=100, height=100, bg="red")
-frame1.pack()
+field_names = ['First Name', 'Last Name', 'Adress Line 1', 'Adress Line 2', 'City', 'State/Province', 'Postal Code', 'Country'] 
 
-frame2 = tk.Frame(master=window, width=50, height=50, bg="yellow")
-frame2.pack()
+root = Tk()
+root.title('Adress Entry Form')
+#root.geometry('600x300')
 
-frame3 = tk.Frame(master=window, width=25, height=25, bg="blue")
-frame3.pack()
 
-window.mainloop()
+frm1 = ttk.Frame(root, relief="sunken", borderwidth=2, padding=2)
+frm2 = ttk.Frame(root)
+frm1.grid(column=0, row=0, sticky='nsew')
+frm2.grid(column=0, row=1, sticky='e')
+
+for row in range(len(field_names)):
+    ttk.Label(frm1, text=field_names[row]).grid(column=0, row=row, sticky='e')
+    ttk.Entry(frm1, width=50).grid(column=1, row=row)
+    
+ttk.Button(frm2, text='Clear').grid(column=0, row=0, padx=5, pady=5)
+ttk.Button(frm2, text='Submit').grid(column=1, row=0, padx=5, pady=5)
+
+root.mainloop()
