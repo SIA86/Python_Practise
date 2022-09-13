@@ -1,15 +1,8 @@
 import tkinter as tk       
 
-class Application(tk.Frame):              
-    def __init__(self, master=None):
-        tk.Frame.__init__(self, master)   
-        self.grid()                       
-        self.createWidgets()
+app = tk.Tk()
 
-    def createWidgets(self):
-        self.quitButton = tk.Button(self, text='Quit', command=self.quit)            
-        self.quitButton.grid()            
-
-app = Application()                       
-app.master.title('Sample application')    
+lbl1 = tk.Label(text="hello")
+lbl1.grid()
+lbl1.grid_forget()
 app.mainloop()                          
