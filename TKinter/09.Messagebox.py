@@ -18,7 +18,7 @@ def ask():
 
 def info_message():
     
-    response = messagebox.askokcancel('Notification', 'Did you check everythink and want to sign in?')
+    response = messagebox.askokcancel('Notification', 'Did you check everything and want to sign in?')
     if response == 1:
         if ent1.get()==LOGIN and ent2.get()==PASSWORD:
             messagebox.showinfo('Acces accept!', 'Welcome!')

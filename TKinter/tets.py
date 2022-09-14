@@ -1,8 +1,16 @@
-import tkinter as tk       
+import tkinter as tk  
+from tkinter import Label, filedialog   
+from PIL import Image, ImageTk  
 
-app = tk.Tk()
+root = tk.Tk()
+root.filename = filedialog.askopenfilename(initialdir=r'C:\Users\Igor\Documents\Python', 
+                                           title='some title', 
+                                           filetypes=(('png files', '*.png'),
+                                           ('jpg files', '*.jpg')))
 
-lbl1 = tk.Label(text="hello")
-lbl1.grid()
-lbl1.grid_forget()
-app.mainloop()                          
+my_img = ImageTk.PhotoImage(Image.open(root.filename))
+lbl1 = tk.Label(root, image=my_img)
+lbl1.pack()
+
+
+root.mainloop()                 
