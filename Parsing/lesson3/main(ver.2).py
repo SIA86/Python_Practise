@@ -3,9 +3,7 @@ Implement a code which parse multy-data from the https://www.finam.ru/infinity/q
 a CSV file to store the information about name, last_price, price_change and volume. Assume that we don't know how many pages is it and parse them using "next" button.
 """
 
-import re
-import requests
-import csv
+import re, requests, csv, time
 from bs4 import BeautifulSoup 
 
 def get_html(url):
@@ -60,6 +58,8 @@ def main():
     
     
     while True:
+        time.sleep(3)
+        print("waiting...")
         get_data(get_html(url))
         soup = BeautifulSoup(get_html(url), 'lxml')
         
