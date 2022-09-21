@@ -43,8 +43,8 @@ def make_all(url):
 
 
 def main():
-    url = ent1.get()
-
+    url = ent_url.get()
+    print(multy)
     #Multiprossesing module 
     with Pool(5) as p:
        p.map(make_all, url)
@@ -52,12 +52,16 @@ def main():
 #GUI commands
 
 def check_time_on():
-    ent_time['state'] = NORMAL
-
+    if timeout.get() == 1:
+        ent_time.configure(state=NORMAL)
+    else:
+        ent_time.configure(state=DISABLED)
 
 def check_multy_on():
-    ent_multy['state'] = NORMAL
-
+    if multy.get() == 1:
+        ent_multy.configure(state=NORMAL)
+    else:
+        ent_multy.configure(state=DISABLED)
 
 #Create GUI
 
@@ -107,9 +111,9 @@ ch_art.grid(column=0, row=3, sticky=W, padx=5, pady=2)
 ch_mark.grid(column=0, row=4, sticky=W, padx=5, pady=2)
 
 #Second column (parser options)
-timeout = BooleanVar()
-proxy = BooleanVar()
-multy = BooleanVar()
+timeout = IntVar()
+proxy = IntVar()
+multy = IntVar()
 timeout.set(0)
 proxy.set(0)
 multy.set(0)
@@ -153,7 +157,5 @@ btn2.grid(column=1, row=0, padx=5, sticky=E)
 
 frame4.grid(column=0, row=2, sticky=E)
 
-mainloop()
+root.mainloop()
 
-if __name__ == "__main__":
-    main()
