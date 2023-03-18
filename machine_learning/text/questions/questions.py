@@ -5,7 +5,7 @@ import string
 import numpy as np
 
 FILE_MATCHES = 1
-SENTENCE_MATCHES = 1
+SENTENCE_MATCHES = 2
 
 
 def main():
