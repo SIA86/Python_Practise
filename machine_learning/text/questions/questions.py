@@ -71,7 +71,7 @@ def tokenize(document):
     """
     tokenized_list = []
     for word in nltk.word_tokenize(document.lower()):
-        if word not in string.punctuation and word not in nltk.corpus.stopwords.words("english"):
+        if word not in string.punctuation and word not in nltk.corpus.stopwords.words("russian"):
             tokenized_list.append(word)
 
     return tokenized_list
