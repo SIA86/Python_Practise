@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import string
+from scipy.spatial.distance import cosine
 print(tf.__version__)
 
 
@@ -85,3 +86,18 @@ y_train = np.asarray(y_train, dtype='float32')
 
 w2v = Word2Vec(vocab_size=vocab_size, optimizer='adam', epochs=10000)
 w2v.train(x_train, y_train)
+
+def distance(w1, w2):
+    return cosine(w1, w2)
+
+
+def closest_words(embedding):
+    distances = {
+        w: distance(embedding, (w2v.W1+w2v.b1)[w])
+        for w in (w2v.W1+w2v.b1)
+    }
+    return sorted(distances, key=lambda w: distances[w])[:10]
+
+
+def closest_word(embedding):
+    return closest_words(embedding)[0]
