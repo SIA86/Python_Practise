@@ -1,4 +1,5 @@
-""" For this programm you need to dowload stock market prices history data and save it locally in .csv format.
+"""
+For this programm you need to dowload stock market prices history data and save it locally in .csv format.
 Then the data will be  normalized
 """
 
@@ -20,10 +21,7 @@ RTS = RTS[['<DATE>', '<CLOSE>']]
 #rename colums
 RTS.rename(columns={'<CLOSE>': 'RTS'}, inplace=True)
 RTS.rename(columns={'<DATE>': 'DATE'}, inplace=True)
-#convert int date to datetime64 format
 
-
-#print(RTS)
 
 #plot the chart
 y= RTS['RTS']
@@ -33,7 +31,7 @@ fig, ax = plt.subplots()
 plt.xlabel('Date')
 plt.ylabel('Value')
 ax.plot(x,y)
-plt.show()
+#plt.show()
 
 date_train = RTS['DATE'][:2500]
 value_train = RTS['RTS'][:2500]
@@ -43,15 +41,18 @@ value_valid = RTS['RTS'][2500:]
 
 #preprocessing
 def windowed_dataset(data, window_size = 30, batch_size = 32):
+
     dataset = tf.data.Dataset.from_tensor_slices(data)
     dataset = dataset.window(window_size, shift = 1, drop_remainder=True)
     dataset = dataset.flat_map(lambda window: window.batch(window_size + 1))
-    dataset = dataset.shuffle(500)
+    dataset = dataset.shuffle(2500)
     dataset = dataset.map(lambda window: (window[:-1], window[-1]))
     dataset = dataset.batch(batch_size).prefetch(1)
+
     return dataset
 
 dataset = windowed_dataset(value_train)
+
 """ for window in dataset:
     for val in window:
         print(val.numpy(), end = ' ')
@@ -93,6 +94,7 @@ def create_model():
 model = create_model()
 
 history = model.fit(dataset, epochs = 20, callbacks = [early_stopping])
+model.save("model.keras")
 
 plt. figure(figsize = (10, 6))
 plt.plot(history.history['mae'], label='mae')
