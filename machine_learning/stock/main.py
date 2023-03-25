@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import mplfinance as mpf
+import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
@@ -46,7 +47,7 @@ def split_data(data: pd.DataFrame) -> pd.DataFrame:
     return train_set, validation_set, test_set
 
 
-def create_uncompiled_model():
+def create_uncompiled_model() -> tf.keras.models.Sequential:
   # define a sequential model
   model = tf.keras.models.Sequential([ 
       tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
@@ -68,25 +69,23 @@ def create_uncompiled_model():
 
   return model
 
-class EarlyStopping(tf.keras.callbacks.Callback):
-    def on_epoch_end(self, epoch, logs = {}):
-        if (logs.get('mae') < 0.1):
-            print('\nMAEthreshold reached. Training stopped.')
-            self.model.stop_training = True
 
-early_stopping = EarlyStopping()
-
-def create_model():
+def create_model() -> tf.keras.models.Sequential:    
     tf.random.set_seed(51)
-
     model = create_uncompiled_model()
+    model.compile(loss=tf.keras.losses.Huber(),
+                  optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+                  metrics=["mae"])
+    return model 
 
-    model.compile(
-        loss = tf.keras.losses.Huber(),
-        optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001),
-        metrics = 'mae')
 
-    return model    
+def plot_loss(model):
+    plt.figure(figsize=(10, 6))
+    plt.plot(model.history['mae'], label='mae')
+    plt.plot(model.history['loss'], label='loss')
+    plt.legend()
+    plt.show()
+
 
 model = create_model()
 
