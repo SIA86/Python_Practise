@@ -21,9 +21,8 @@ def get_data(path: str) -> pd.DataFrame:
     return df
 
 
-def plot_chart(data_frame: pd.DataFrame) -> 'chart':
-    start = 2400
-    end = 2500
+def plot_chart(data_frame: pd.DataFrame, start: int, end: int, volume: bool) -> 'chart':
+    
     #end = len(data_frame.index) #set start and end variables
     mpf.plot(data_frame.iloc[start:end,:], type='candle', volume= True)
 
@@ -95,14 +94,18 @@ def model_forecast(model, data, window_size):
     return forecast
 
 def main():
-    data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt')
-    plot_chart(data)
-    train_set, validation_set, test_set = split_data(data)
-    model = create_model()
-    history = model.fit(train_set, epochs=15, validation_data = validation_set)
+    data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt') #get data from given csv file
+    plot_chart(data, start = 2500, end = 2600, volume = True)
+    train_set, validation_set, test_set = split_data(data) #split data to train, validation and test parts
+    model = create_model() #create model
+    history = model.fit(train_set, epochs=15, validation_data = validation_set) #fit model
     plot_loss(history)
     model.save('model.keras.six_bidirectional_lstm_layers_64')
     model.evaluate(test_set, batch_size=50)
+    all_forecast = model_forecast(model, data, 30).squeeze()
+    plot_chart(all_forecast, start = 3900, end = 4000, volume = False)
+    
+
 
 
 if __name__ == 'main':
