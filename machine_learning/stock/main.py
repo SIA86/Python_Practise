@@ -1,12 +1,12 @@
 import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import mplfinance as mpf
 
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 
-ddef get_data(path: str) -> pd.DataFrame:
+def get_data(path: str) -> pd.DataFrame:
     
     df = pd.read_csv(path, index_col=2, parse_dates=True)
     df = df.dropna()  #drop all null values
@@ -21,16 +21,11 @@ ddef get_data(path: str) -> pd.DataFrame:
     return df
 
 
-
-#plot the chart
-y= RTS['RTS']
-#convert int date to datetime64 format
-x = RTS['DATE'].apply(lambda x: pd.to_datetime(str(x), format='%Y%m%d'))
-fig, ax = plt.subplots()
-plt.xlabel('Date')
-plt.ylabel('Value')
-ax.plot(x,y)
-#plt.show()
+def plot_chart(data_frame: pd.DataFrame) -> 'chart':
+    start = 2400
+    end = 2500
+    #end = len(data_frame.index) #set start and end variables
+    mpf.plot(data_frame.iloc[start:end,:], type='candle', volume= True)
 
 date_train = RTS['DATE'][:2500]
 value_train = RTS['RTS'][:2500]
@@ -104,3 +99,4 @@ plt.show()
 
 def main():
     get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt')
+    plot_chart(data)
