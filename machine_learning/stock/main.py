@@ -57,8 +57,6 @@ def create_uncompiled_model() -> tf.keras.models.Sequential:
       tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
       tf.keras.layers.Dropout(0.3),
       tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
-      tf.keras.layers.Dropout(0.5),
-      tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
       tf.keras.layers.Dropout(0.3),
       tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
       tf.keras.layers.Dropout(0.3),
@@ -87,18 +85,12 @@ def plot_loss(model):
     plt.show()
 
 
-model = create_model()
-
-model.fit(dataset, epochs = 20, callbacks = [early_stopping])
-model.save("model.keras")
-history = model
-
-plt. figure(figsize = (10, 6))
-plt.plot(history.history['mae'], label='mae')
-plt.plot(history.history['loss'], label = 'loss')
-plt.legend
-plt.show()
-
 def main():
-    get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt')
+    data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt')
     plot_chart(data)
+    train_set, validation_set, test_set = split_data(data)
+    model = create_model()
+    history = model.fit(train_set, epochs=15, validation_data = validation_set)
+    plot_loss(history)
+    model.save('model.keras.six_bidirectional_lstm_layers_64')
+    model.evaluate(test_set, batch_size=50)
