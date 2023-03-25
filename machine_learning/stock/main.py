@@ -1,26 +1,22 @@
-"""
-For this programm you need to dowload stock market prices history data and save it locally in .csv format.
-Then the data will be  normalized
-"""
-
 import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from scipy import stats
+
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
-import datetime
 
+def get_data(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)  #read data from csv
+    df = df.dropna()  #drop all null values
+    
+    df = df[['<DATE>', '<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>', '<VOL>']]
+    normalized = max(df['<HIGH>'])
+    df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>']] = df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>']].apply(lambda x: x/normalized)
+    df['<VOL>'] = df['<VOL>'].apply(lambda x: x/max(df['<VOL>']))
+    
+    return df
 
-#read data from csv
-RTS = pd.read_csv(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt')
-#select only the data and close price
-RTS = RTS[['<DATE>', '<CLOSE>']]
-#rename colums
-RTS.rename(columns={'<CLOSE>': 'RTS'}, inplace=True)
-RTS.rename(columns={'<DATE>': 'DATE'}, inplace=True)
 
 
 #plot the chart
@@ -93,8 +89,9 @@ def create_model():
 
 model = create_model()
 
-history = model.fit(dataset, epochs = 20, callbacks = [early_stopping])
+model.fit(dataset, epochs = 20, callbacks = [early_stopping])
 model.save("model.keras")
+history = model
 
 plt. figure(figsize = (10, 6))
 plt.plot(history.history['mae'], label='mae')
@@ -102,3 +99,5 @@ plt.plot(history.history['loss'], label = 'loss')
 plt.legend
 plt.show()
 
+def main():
+    get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt')
