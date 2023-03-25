@@ -20,7 +20,7 @@ def get_data(path: str) -> pd.DataFrame:
     return df
 
 
-def plot_chart(data_frame: pd.DataFrame, start: int, end: int, volume: bool) -> 'chart':
+def plot_chart(data_frame: pd.DataFrame, start: int, end: int, volume: bool):
     
     #end = len(data_frame.index) #set start and end variables
     mpf.plot(data_frame.iloc[start:end,:], type='candle', volume= True)
@@ -38,9 +38,9 @@ def dataset(data: pd.DataFrame, window_size: int = 30, batch_size: int = 50) -> 
 
 
 def split_data(data: pd.DataFrame) -> pd.DataFrame:
-    train_set = dataset(data[:3700]) 
-    validation_set = dataset(data[3700:3900])
-    test_set = dataset(data[3900:])
+    train_set = dataset(data[:2800]) 
+    validation_set = dataset(data[2800:3000])
+    test_set = dataset(data[3000:])
 
     return train_set, validation_set, test_set
 
@@ -60,7 +60,7 @@ def create_uncompiled_model() -> tf.keras.models.Sequential:
       tf.keras.layers.Dropout(0.3),
       tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64)),
       tf.keras.layers.Dropout(0.3),
-      tf.keras.layers.Dense(1),
+      tf.keras.layers.Dense(4),
   ]) 
 
   return model
@@ -75,7 +75,7 @@ def create_model() -> tf.keras.models.Sequential:
     return model 
 
 
-def plot_loss(model: tf.keras.models.Sequential) -> 'chart':
+def plot_loss(model: tf.keras.models.Sequential):
     plt.figure(figsize=(10, 6))
     plt.plot(model.history['mae'], label='mae')
     plt.plot(model.history['loss'], label='loss')
@@ -83,27 +83,38 @@ def plot_loss(model: tf.keras.models.Sequential) -> 'chart':
     plt.show()
 
 
-def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame, window_size: int) -> tf.data.Dataset:
+def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame, window_size: int) -> np.array:
     ds = tf.data.Dataset.from_tensor_slices(data)
     ds = ds.window(window_size, shift=1, drop_remainder=True)
     ds = ds.flat_map(lambda w: w.batch(window_size))
     ds = ds.batch(32).prefetch(1)
     forecast = model.predict(ds)
-    
+            
     return forecast
 
-def main():
-    data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt') #get data from given csv file
-    plot_chart(data, start = 2500, end = 2600, volume = True)
-    train_set, validation_set, test_set = split_data(data) #split data to train, validation and test parts
-    model = create_model() #create model
+def to_pd(forecast: np.array, data: pd.DataFrame) -> pd.DataFrame:
+    df = data.copy()
+    df = df[:-30]
+    df[['Open', 'High', 'Low', 'Close']] = [forecast[:,0], forecast[:,1], forecast[:,2], forecast[:,3]]
+    return df
+
+data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt') #get data from given csv file
+plot_chart(data, start = 2500, end = 2600, volume = True)
+train_set, validation_set, test_set = split_data(data) #split data to train, validation and test parts
+model = create_model() #create model
+try:
+    model = tf.keras.models.load_model('model.keras.six_bidirectional_lstm_layers_64')
+    print('Loading trained model')
+    
+except Exception as e:
+    print('No saved model')
     history = model.fit(train_set, epochs=15, validation_data = validation_set) #fit model
     plot_loss(history)
     model.save('model.keras.six_bidirectional_lstm_layers_64')
     model.evaluate(test_set, batch_size=50)
-    all_forecast = model_forecast(model, data, 30).squeeze()
-    plot_chart(all_forecast, start = 3900, end = 4000, volume = False)
+
+forecast = to_pd(model_forecast(model, data, 30).squeeze(), data)
+
+plot_chart(forecast, start =3000, end = 3773, volume = False)
 
 
-if __name__ == 'main':
-    main()
