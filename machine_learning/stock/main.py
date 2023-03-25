@@ -3,9 +3,8 @@ import pandas as pd
 import numpy as np
 import mplfinance as mpf
 import matplotlib.pyplot as plt
-
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
+
 
 def get_data(path: str) -> pd.DataFrame:
     
@@ -76,7 +75,7 @@ def create_model() -> tf.keras.models.Sequential:
     return model 
 
 
-def plot_loss(model):
+def plot_loss(model: tf.keras.models.Sequential) -> 'chart':
     plt.figure(figsize=(10, 6))
     plt.plot(model.history['mae'], label='mae')
     plt.plot(model.history['loss'], label='loss')
@@ -84,7 +83,7 @@ def plot_loss(model):
     plt.show()
 
 
-def model_forecast(model, data, window_size):
+def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame, window_size: int) -> tf.data.Dataset:
     ds = tf.data.Dataset.from_tensor_slices(data)
     ds = ds.window(window_size, shift=1, drop_remainder=True)
     ds = ds.flat_map(lambda w: w.batch(window_size))
@@ -104,8 +103,6 @@ def main():
     model.evaluate(test_set, batch_size=50)
     all_forecast = model_forecast(model, data, 30).squeeze()
     plot_chart(all_forecast, start = 3900, end = 4000, volume = False)
-    
-
 
 
 if __name__ == 'main':
