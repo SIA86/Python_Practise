@@ -6,14 +6,17 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 
-def get_data(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path)  #read data from csv
+ddef get_data(path: str) -> pd.DataFrame:
+    
+    df = pd.read_csv(path, index_col=2, parse_dates=True)
     df = df.dropna()  #drop all null values
     
-    df = df[['<DATE>', '<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>', '<VOL>']]
-    normalized = max(df['<HIGH>'])
-    df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>']] = df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>']].apply(lambda x: x/normalized)
-    df['<VOL>'] = df['<VOL>'].apply(lambda x: x/max(df['<VOL>']))
+    df = df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>', '<VOL>']] #drop useless colums
+    normalized = max(df['<HIGH>']) #create general normalisation coefficient
+    df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>']] = df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>']].apply(lambda x: x/normalized) #apply n. coeficient to price colums
+    df['<VOL>'] = df['<VOL>'].apply(lambda x: x/max(df['<VOL>'])) #normilized volume column
+    df = df.rename(columns={'<OPEN>':'Open', '<HIGH>':'High', '<LOW>':'Low', '<CLOSE>':'Close', '<VOL>':'Volume'})
+    df.index.name = 'Date'
     
     return df
 
