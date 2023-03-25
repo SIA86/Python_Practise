@@ -27,6 +27,7 @@ def plot_chart(data_frame: pd.DataFrame) -> 'chart':
     #end = len(data_frame.index) #set start and end variables
     mpf.plot(data_frame.iloc[start:end,:], type='candle', volume= True)
 
+
 def dataset(data: pd.DataFrame, window_size: int = 30, batch_size: int = 50) -> tf.data.Dataset:
     dataset = tf.data.Dataset.from_tensor_slices(data)
     dataset = dataset.window(window_size +1, shift = 1, drop_remainder=True)
@@ -37,25 +38,12 @@ def dataset(data: pd.DataFrame, window_size: int = 30, batch_size: int = 50) -> 
 
     return dataset
 
-
-#preprocessing
-def windowed_dataset(data, window_size = 30, batch_size = 32):
-
-    dataset = tf.data.Dataset.from_tensor_slices(data)
-    dataset = dataset.window(window_size, shift = 1, drop_remainder=True)
-    dataset = dataset.flat_map(lambda window: window.batch(window_size + 1))
-    dataset = dataset.shuffle(2500)
-    dataset = dataset.map(lambda window: (window[:-1], window[-1]))
-    dataset = dataset.batch(batch_size).prefetch(1)
-
-    return dataset
-
-dataset = windowed_dataset(value_train)
-
-""" for window in dataset:
-    for val in window:
-        print(val.numpy(), end = ' ')
-    print() """
+def split_data(data: pd.DataFrame) -> pd.DataFrame:
+    train_set = dataset(data[:3700]) 
+    validation_set = dataset(data[3700:3900])
+    test_set = dataset(data[3900:])
+    
+    return train_set, validation_set, test_set
 
 def create_uncompiled_model():
     model = tf.keras.models.Sequential([
