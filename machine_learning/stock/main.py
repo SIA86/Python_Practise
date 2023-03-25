@@ -10,7 +10,6 @@ def get_data(path: str) -> pd.DataFrame:
     
     df = pd.read_csv(path, index_col=2, parse_dates=True)
     df = df.dropna()  #drop all null values
-    
     df = df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>', '<VOL>']] #drop useless colums
     normalized = max(df['<HIGH>']) #create general normalisation coefficient
     df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>']] = df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>']].apply(lambda x: x/normalized) #apply n. coeficient to price colums
@@ -38,25 +37,36 @@ def dataset(data: pd.DataFrame, window_size: int = 30, batch_size: int = 50) -> 
 
     return dataset
 
+
 def split_data(data: pd.DataFrame) -> pd.DataFrame:
     train_set = dataset(data[:3700]) 
     validation_set = dataset(data[3700:3900])
     test_set = dataset(data[3900:])
-    
+
     return train_set, validation_set, test_set
 
-def create_uncompiled_model():
-    model = tf.keras.models.Sequential([
-        tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis = -1), input_shape= [None]),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(1024, return_sequences = True)),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(528, return_sequences = True)),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(256, return_sequences = True)),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences = True)),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences = True)),
-        tf.keras.layers.Dense(1),
-    ])
 
-    return model
+def create_uncompiled_model():
+  # define a sequential model
+  model = tf.keras.models.Sequential([ 
+      tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
+      tf.keras.layers.Dropout(0.3),
+      tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
+      tf.keras.layers.Dropout(0.3),
+      tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
+      tf.keras.layers.Dropout(0.3),
+      tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
+      tf.keras.layers.Dropout(0.5),
+      tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
+      tf.keras.layers.Dropout(0.3),
+      tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
+      tf.keras.layers.Dropout(0.3),
+      tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64)),
+      tf.keras.layers.Dropout(0.3),
+      tf.keras.layers.Dense(1),
+  ]) 
+
+  return model
 
 class EarlyStopping(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs = {}):
