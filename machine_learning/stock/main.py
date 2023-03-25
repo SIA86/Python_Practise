@@ -27,10 +27,15 @@ def plot_chart(data_frame: pd.DataFrame) -> 'chart':
     #end = len(data_frame.index) #set start and end variables
     mpf.plot(data_frame.iloc[start:end,:], type='candle', volume= True)
 
-date_train = RTS['DATE'][:2500]
-value_train = RTS['RTS'][:2500]
-date_valid = RTS['DATE'][2500:]
-value_valid = RTS['RTS'][2500:]
+def dataset(data: pd.DataFrame, window_size: int = 30, batch_size: int = 50) -> tf.data.Dataset:
+    dataset = tf.data.Dataset.from_tensor_slices(data)
+    dataset = dataset.window(window_size +1, shift = 1, drop_remainder=True)
+    dataset = dataset.flat_map(lambda x: x.batch(window_size+1))
+    dataset = dataset.shuffle(500)
+    dataset = dataset.map(lambda x: (x[:-1], x[-1][:-1]))
+    dataset = dataset.batch(batch_size).prefetch(1)
+
+    return dataset
 
 
 #preprocessing
