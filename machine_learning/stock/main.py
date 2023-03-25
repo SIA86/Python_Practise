@@ -85,6 +85,15 @@ def plot_loss(model):
     plt.show()
 
 
+def model_forecast(model, data, window_size):
+    ds = tf.data.Dataset.from_tensor_slices(data)
+    ds = ds.window(window_size, shift=1, drop_remainder=True)
+    ds = ds.flat_map(lambda w: w.batch(window_size))
+    ds = ds.batch(32).prefetch(1)
+    forecast = model.predict(ds)
+    
+    return forecast
+
 def main():
     data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt')
     plot_chart(data)
@@ -94,3 +103,7 @@ def main():
     plot_loss(history)
     model.save('model.keras.six_bidirectional_lstm_layers_64')
     model.evaluate(test_set, batch_size=50)
+
+
+if __name__ == 'main':
+    main()
