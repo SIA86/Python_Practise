@@ -5,6 +5,8 @@ import mplfinance as mpf
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
+WIN_SIZE = 30
+
 
 def get_data(path: str) -> pd.DataFrame:
     
@@ -20,16 +22,20 @@ def get_data(path: str) -> pd.DataFrame:
     return df
 
 
-def plot_chart(data_frame: pd.DataFrame, start: int, end: int, volume: bool):
-    
-    #end = len(data_frame.index) #set start and end variables
-    mpf.plot(data_frame.iloc[start:end,:], type='candle', volume= True)
+def plot_chart(data_frame: pd.DataFrame, prediction: pd.DataFrame, volume: bool):
+    fig, ax = plt.sublots()
+    ax.plot(data_frame)
+    ax.plot(prediction, label="pred")
+    plt.show
 
 
-def dataset(data: pd.DataFrame, window_size: int = 30, batch_size: int = 50) -> tf.data.Dataset:
+
+
+
+def dataset(data: pd.DataFrame, batch_size: int = 50) -> tf.data.Dataset:
     dataset = tf.data.Dataset.from_tensor_slices(data)
-    dataset = dataset.window(window_size +1, shift = 1, drop_remainder=True)
-    dataset = dataset.flat_map(lambda x: x.batch(window_size+1))
+    dataset = dataset.window(WIN_SIZE +1, shift = 1, drop_remainder=True)
+    dataset = dataset.flat_map(lambda x: x.batch(WIN_SIZE+1))
     dataset = dataset.shuffle(500)
     dataset = dataset.map(lambda x: (x[:-1], x[-1][:-1]))
     dataset = dataset.batch(batch_size).prefetch(1)
@@ -83,38 +89,43 @@ def plot_loss(model: tf.keras.models.Sequential):
     plt.show()
 
 
-def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame, window_size: int) -> np.array:
+def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> np.array:
     ds = tf.data.Dataset.from_tensor_slices(data)
-    ds = ds.window(window_size, shift=1, drop_remainder=True)
-    ds = ds.flat_map(lambda w: w.batch(window_size))
+    ds = ds.window(WIN_SIZE, shift=1, drop_remainder=True)
+    ds = ds.flat_map(lambda w: w.batch(WIN_SIZE))
     ds = ds.batch(32).prefetch(1)
     forecast = model.predict(ds)
+    forecast = pd.DataFrame(forecast)
+    forecast.index = pd.to_datetime(forecast.index, origin =pd.Timestamp(data.index[WIN_SIZE])) 
+    forecast = 
+    forecast = forecast.rename(columns={ 0:'Open', 1:'High', 2:'Low', 3:'Close'})
+    forecast.to_csv('forecast.csv')
+
             
     return forecast
 
-def to_pd(forecast: np.array, data: pd.DataFrame) -> pd.DataFrame:
-    df = data.copy()
-    df = df[:-30]
-    df[['Open', 'High', 'Low', 'Close']] = [forecast[:,0], forecast[:,1], forecast[:,2], forecast[:,3]]
-    return df
 
 data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_140115_230322.txt') #get data from given csv file
-plot_chart(data, start = 2500, end = 2600, volume = True)
-train_set, validation_set, test_set = split_data(data) #split data to train, validation and test parts
-model = create_model() #create model
 try:
-    model = tf.keras.models.load_model('model.keras.six_bidirectional_lstm_layers_64')
-    print('Loading trained model')
-    
+    forecast = pd.read_csv('forecast.csv')
 except Exception as e:
-    print('No saved model')
-    history = model.fit(train_set, epochs=15, validation_data = validation_set) #fit model
-    plot_loss(history)
-    model.save('model.keras.six_bidirectional_lstm_layers_64')
-    model.evaluate(test_set, batch_size=50)
+    print('No predictions')
+    #plot_chart(data, start = 0, end = None, volume = True)
+    train_set, validation_set, test_set = split_data(data) #split data to train, validation and test parts
+    model = create_model() #create model
+    try:
+        model = tf.keras.models.load_model('model.keras.six_bidirectional_lstm_layers_64')
+        print('Loading trained model')
+        
+    except Exception as e:
+        print('No saved model')
+        history = model.fit(train_set, epochs=15, validation_data = validation_set) #fit model
+        plot_loss(history)
+        model.save('model.keras.six_bidirectional_lstm_layers_64')
+        model.evaluate(test_set, batch_size=50)
 
-forecast = to_pd(model_forecast(model, data, 30).squeeze(), data)
+    forecast = model_forecast(model, data).squeeze()
 
-plot_chart(forecast, start =3000, end = 3773, volume = False)
+plot_chart(data,  forecast, volume = False)
 
 
