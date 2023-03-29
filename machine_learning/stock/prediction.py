@@ -68,7 +68,7 @@ def create_model() -> tf.keras.models.Sequential:
     return model 
 
 
-def plot_loss(model: tf.keras.models.Sequential): -> None
+def plot_loss(model: tf.keras.models.Sequential) -> None:
     plt.figure(figsize=(10, 6))
     #ax.set_xlim(xmin=0)
     plt.plot(model.history['mae'], label='MSE')
@@ -77,25 +77,20 @@ def plot_loss(model: tf.keras.models.Sequential): -> None
     plt.show()
 
 
-def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> np.array:
+def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> pd.DataFrame:
     ds = tf.data.Dataset.from_tensor_slices(data)
     ds = ds.window(WIN_SIZE, shift=1, drop_remainder=True)
     ds = ds.flat_map(lambda w: w.batch(WIN_SIZE))
     ds = ds.batch(32).prefetch(1)
     forecast = model.predict(ds)
-    return forecast
-
-
-def concatinate_results(data: pd.DataFrame, forecast: np.array) -> pd.DataFrame:
-    df = data[size:].copy()
+    df = data.copy()
     df = df.iloc[:,:-1]
     df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('1 day')))  
-    empty_rows = pd.DataFrame({'Close':[np.NAN for _ in range(WIN_SIZE)]})
-    forecast = pd.DataFrame(forecast, columns=['Close'])
-    forecast = pd.concat([empty_rows, forecast])
+    empty_rows = np.array([[np.NAN] for _ in range(WIN_SIZE)])
+    forecast = np.concatenate((empty_rows, forecast))
     df['Predicted_close'] = forecast
     df = df*normalized
-    df.to_csv('data_with_predictions.csv.csv')
+    df.to_csv('data_with_predictions.csv')
     return df
 
 
@@ -123,8 +118,7 @@ def main():
             model.save('model.model.keras.128nn.15min')
             model.evaluate(test_set, batch_size=50)
 
-        forecast = model_forecast(model, data[size:])
-        data_with_predictions = concatinate_results(data, forecast)
+        data_with_predictions = model_forecast(model, data[size:])
     print('plotting...')
 
     apdict = mpf.make_addplot((data_with_predictions['Predicted_close']))

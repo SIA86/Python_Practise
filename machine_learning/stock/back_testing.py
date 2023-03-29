@@ -9,7 +9,14 @@ def chart_monitoring():
     status = False
     for candle in range(data.shape[0]):
         if !status:
-            if 
+            if condition_to_buy:
+                buy_price = data.loc[candle+1, 'Open']
+                buy_orders.append(buy_price)
+                status = !status
+            if condition_to_sell:
+                sell_price = data.loc[candle+1, 'Open']
+                sell_orders.append(sell_price)
+                status = !status
         else:
 
 
