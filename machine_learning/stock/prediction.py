@@ -5,7 +5,7 @@ import mplfinance as mpf
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
-
+SPLIT = 0.8
 WIN_SIZE = 20
 
 def get_data(path: str) -> pd.DataFrame:
@@ -31,10 +31,10 @@ def dataset(data: pd.DataFrame, batch_size: int = 50) -> tf.data.Dataset:
     return dataset
 
 
-def split_data(data: pd.DataFrame, split: float) -> pd.DataFrame:
-    size = int(data.shape[0]*split)
+def split_data(data: pd.DataFrame, size: int) -> pd.DataFrame:
+    
     train_set = dataset(data[:int(size*0.9)]) 
-    validation_set = dataset(data[int(size*0.9)]:size)
+    validation_set = dataset(data[int(size*0.9):size])
     test_set = dataset(data[size:])
     return train_set, validation_set, test_set
 
@@ -87,22 +87,25 @@ def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> np.
 
 
 def concatinate_results(data: pd.DataFrame, forecast: np.array) -> pd.DataFrame:
-    df = data.copy()  
-    forecast 
-    """ df = df.iloc[:,3:-1]
-    df.iloc[:WIN_SIZE,:] = np.NAN
-    df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('1 day')))
-    df.iloc[WIN_SIZE:,:] = forecast """
-    df.to_csv('forecast.csv')
+    df = data[size:].copy()
+    df = df.iloc[:,:-1]
+    df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('1 day')))  
+    empty_rows = pd.DataFrame({'Close':[np.NAN for _ in range(WIN_SIZE)]})
+    forecast = pd.DataFrame(forecast, columns=['Close'])
+    forecast = pd.concat([empty_rows, forecast])
+    df['Predicted_close'] = forecast
+    df = df*normalized
+    df.to_csv('data_with_predictions.csv.csv')
+    return df
 
 
 def main():
     print('loading data')
     data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_200115_230322(15).txt') #get data from given csv file
-
+    size = int(data.shape[0]*SPLIT)
     try:
         print('Trying to load predictions')
-        forecast = pd.read_csv('forecast.csv', index_col=0, parse_dates=True )
+        data_with_predictions = pd.read_csv('data_with_predictions.csv', index_col=0, parse_dates=True )
     except Exception as e:
         print('No predictions found')
         #plot_chart(data, start = 0, end = None, volume = True)
@@ -113,22 +116,19 @@ def main():
             
         except Exception as e:
             print('No saved model')
-            train_set, validation_set, test_set = split_data(data, split = 0.8) #split data to train, validation and test parts
+            train_set, validation_set, test_set = split_data(data, size) #split data to train, validation and test parts
             model = create_model() #create model
             history = model.fit(train_set, epochs=15, validation_data = validation_set) #fit model
             plot_loss(history)
             model.save('model.model.keras.128nn.15min')
             model.evaluate(test_set, batch_size=50)
 
-        forecast = model_forecast(model, data[int(data.shape[0]*0.8):])
+        forecast = model_forecast(model, data[size:])
+        data_with_predictions = concatinate_results(data, forecast)
     print('plotting...')
 
-    apdict = mpf.make_addplot((forecast['Close']*normalized))
-    plot_data = data.iloc[:,:-1]
-    plot_data = plot_data[int(plot_data.shape[0]*0.8):]
-    plot_data = plot_data*normalized
-    plot_data = plot_data.append(pd.Series(name = max(plot_data.index) + pd.Timedelta('1 day')))
-    mpf.plot(plot_data,type='candle', volume=False, addplot=apdict)
+    apdict = mpf.make_addplot((data_with_predictions['Predicted_close']))
+    mpf.plot(data_with_predictions.iloc[:,:-1],type='candle', volume=False, addplot=apdict)
     mpf.show()
 
 
