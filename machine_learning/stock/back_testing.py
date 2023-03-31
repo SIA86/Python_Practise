@@ -14,8 +14,13 @@ def chart_monitoring(data: pd.DataFrame) -> float:
         if not bought:
             if data.iloc[candle]['Predicted_close'] - data.iloc[candle-1]['Predicted_close'] > 0:
                 buy_price = data.iloc[candle+1]['Open']
-                stop_loss = min([data.iloc[x]['Low'] - 10 for x in range(candle -20, candle)])
-                take_profit = buy_price + (buy_price - stop_loss) * 3
+                print("_------------_------------_")
+                print(f'Deal #{candle}')
+                print(f"Buy price: {buy_price}")
+                stop_loss = min([data.iloc[x]['Low'] - 10 for x in range(candle -10, candle)])
+                print(f"Stop_loss: {stop_loss}")
+                take_profit = buy_price + 1000
+                print(f"Take Profit: {take_profit}")
                 buy_orders.append(buy_price)
                 sell_orders.append(np.nan)
                 bought = True
@@ -25,21 +30,24 @@ def chart_monitoring(data: pd.DataFrame) -> float:
             
         elif bought:
             if  data.iloc[candle]['Low'] < stop_loss:
+                
                 sell_price = stop_loss
+                print(f"Stop_loss reached: {sell_price}")
                 sell_orders.append(sell_price)
                 buy_orders.append(np.nan)
                 deals = buy_price - sell_price
                 bought = False
             elif data.iloc[candle]['High'] > take_profit:
                 sell_price = take_profit
+                print(f"Take profit reached: {sell_price}")
                 sell_orders.append(sell_price)
                 buy_orders.append(np.nan)
                 deals = buy_price - sell_price
                 bought = False
             else:
-                stop_loss = min([data.iloc[x]['Low'] - 10 for x in range(candle -20, candle)])
                 sell_orders.append(np.nan)
                 buy_orders.append(np.nan)
+    
                 
             
     return deals, buy_orders, sell_orders
