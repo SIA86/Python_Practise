@@ -9,15 +9,15 @@ SPLIT = 0.8
 WIN_SIZE = 20
 
 def get_data(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path, index_col=2, parse_dates=True)
+    df = pd.read_csv(path)
     df = df.dropna()  #drop all null values
     df = df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>', '<VOL>']] #drop useless colums
     df = df.rename(columns={'<OPEN>':'Open', '<HIGH>':'High', '<LOW>':'Low', '<CLOSE>':'Close', '<VOL>':'Volume'})
     df.index.name = 'Date'   
     global normalized
     normalized = max(df['High']) #create general normalisation coefficient 
-    df.iloc[:,:-1] = df.iloc[:,:-1]/normalized #apply n. coeficient to price colums
-    df['Volume'] = df['Volume']/max(df['Volume']) 
+    df= df/normalized #apply n. coeficient to price colums
+    #df['Volume'] = df['Volume']/max(df['Volume']) 
     return df
 
 
@@ -84,7 +84,7 @@ def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> pd.
     ds = ds.batch(32).prefetch(1)
     forecast = model.predict(ds)
     df = data.copy()
-    df = df.iloc[:,:-1]
+    
     df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('1 day')))  
     empty_rows = np.array([[np.NAN] for _ in range(WIN_SIZE)])
     forecast = np.concatenate((empty_rows, forecast))
