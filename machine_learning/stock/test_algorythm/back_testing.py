@@ -6,13 +6,19 @@ import os
 
 TRAILING_STOP = False
 
-""" def conditions(data: pd.DataFrame, current: int) -> bool:
+def conditions(data: pd.DataFrame, current: int) -> bool:
     
-    condition_to_buy = all(
-    data['Open'] - data['Close']
-
-    )
-    """
+    condition_to_buy = all([
+    data.iloc[current]['Body'] <= 0.4 * data.iloc[current]['Total'],
+    data.iloc[current]['Down_shadow'] >= 0.5 * * data.iloc[current]['Total'],
+    data.iloc[current]['Color'] == any(['Red','Grey'])
+    ])
+    condition_to_sell = all([
+    data.iloc[current]['Body'] <= 0.4 * data.iloc[current]['Total'],
+    data.iloc[current]['Up_shadow'] >= 0.5 * * data.iloc[current]['Total'],
+    data.iloc[current]['Color'] == any(['Green','Grey'])
+    ])
+    return condition_to_buy, condition_to_sell
 
 def get_data(path: str) -> pd.DataFrame:
     df = pd.read_csv(path) #read data from csv
@@ -33,7 +39,7 @@ def get_data(path: str) -> pd.DataFrame:
     #set index to timestamp object
     df = df.set_index('Date')
     #drop useless columns
-    df = df.iloc[:,3:]
+    df = df.iloc[30000:,3:]
     #add special columns with information about candles
     df['Body'] = df['Close'] - df['Open']
     df['Colore'] = df['Body'].apply(lambda x: 'Red' if x < 0 else 'Green' if x > 0 else "Grey")
@@ -43,17 +49,20 @@ def get_data(path: str) -> pd.DataFrame:
     df.loc[df['Colore'] == 'Green', 'Down_shadow'] = df['Open'] - df['Low']
     df.loc[(df['Colore'] == 'Red') | (df['Colore'] == 'Grey'), 'Down_shadow'] = df['Close'] - df['Low']
     df['Total'] = df['High'] - df['Low']
-    lis = []
+    loc_min_max = []
+    
     for tic in range(len(df)):
         if tic == 0 or tic == len(df)-1:
-            lis.append(np.nan)
-        elif df.iloc[tic]['Close'] > df.iloc[tic-1]['Close'] and df.iloc[tic]['Close'] > df.iloc[tic+1]['Close']:
-            lis.append('max')
-        elif df.iloc[tic]['Close'] < df.iloc[tic-1]['Close'] and df.iloc[tic]['Close'] < df.iloc[tic+1]['Close']:
-            lis.append('min')
+            loc_min_max.append(np.nan)          
+        elif df.iloc[tic]['High'] > df.iloc[tic-1]['High'] and df.iloc[tic]['High'] > df.iloc[tic+1]['Close']:           
+            loc_min_max.append('max')
+        elif df.iloc[tic]['Low'] < df.iloc[tic-1]['Low'] and df.iloc[tic]['Low'] < df.iloc[tic+1]['Close']:
+            loc_min_max.append('min')            
         else:
-            lis.append(np.nan)
-    df['Local_min_max'] = lis        
+            loc_min_max.append(np.nan)           
+    df['Local_min_max'] = loc_min_max  
+    df.loc[df['Local_min_max'] == 'max', 'Local_max_value'] = df['High'] 
+    df.loc[df['Local_min_max'] == 'min', 'Local_min_value'] = df['Low']    
     return df
 
 
@@ -68,13 +77,14 @@ def test_algorythm(data: pd.DataFrame) -> float:
     sold = False
     
     for candle in range(data.shape[0]):
+        condition_to_buy, condition_to_sell = conditions(data, candle)
         if not bought and not sold:
             if condition_to_buy:
                 buy_price = data.iloc[candle+1]['Open'] #open price of the next candle
                 buy_orders.append(buy_price)
                 sell_orders.append(np.nan)
                 bought = True
-                stop_loss = min([data.iloc[x, 'Low'] for x in range(candle-10, candle+1)]) #local min low price of 10 candles before and current
+                stop_loss = min([data['Local_min_value']]) #local min low price of 10 candles before and current
                 take_profit = max(max([data.iloc[x, 'Close'] for x in range(candle-20, candle)]), buy_price+(buy_price-stop_loss)*2) #local max Close price of 20 candles before or 2*stop_loss
             elif condition_to_sell:
                 sell_price = data.iloc[candle]['Close']
@@ -115,12 +125,14 @@ def test_algorythm(data: pd.DataFrame) -> float:
     return deals, buy_orders, sell_orders 
 
 data = get_data('Data\RTS\SPFB.RTS_200115_230322(15).txt')
-apdict = ([
-    mpf.make_addplot(data.loc[data['Local_min_max']== 'min', data['Close']],type='scatter',markersize=100,marker='^'),
-    mpf.make_addplot(data.loc[data['Local_min_max']== 'max', data['Close']],type='scatter',markersize=100,marker='v')
+test_algorythm(data)
+
+""" apdict = ([
+    mpf.make_addplot(data['Local_min_value'],type='scatter',markersize=100,marker='^'),
+    mpf.make_addplot(data['Local_max_value'],type='scatter',markersize=100,marker='v')
 ])
 
 mpf.plot(data.iloc[:,:-1],type='candle', volume=False, addplot=apdict)
 mpf.show() 
-
+ """
 
