@@ -5,18 +5,19 @@ import matplotlib.pyplot as plt
 import os
 
 TRAILING_STOP = False
+WARM_UP_PERIOD = 14
 
 def conditions(data: pd.DataFrame, current: int) -> bool:
     
     condition_to_buy = all([
     data.iloc[current]['Body'] <= 0.4 * data.iloc[current]['Total'],
-    data.iloc[current]['Down_shadow'] >= 0.5 * * data.iloc[current]['Total'],
-    data.iloc[current]['Color'] == any(['Red','Grey'])
+    data.iloc[current]['Down_shadow'] >= 0.5 * data.iloc[current]['Total']
+    #data.iloc[current]['Colore'] == any(['Red','Grey'])
     ])
     condition_to_sell = all([
     data.iloc[current]['Body'] <= 0.4 * data.iloc[current]['Total'],
-    data.iloc[current]['Up_shadow'] >= 0.5 * * data.iloc[current]['Total'],
-    data.iloc[current]['Color'] == any(['Green','Grey'])
+    data.iloc[current]['Up_shadow'] >= 0.5 * data.iloc[current]['Total']
+    #data.iloc[current]['Colore'] == any(['Green','Grey'])
     ])
     return condition_to_buy, condition_to_sell
 
@@ -49,8 +50,8 @@ def get_data(path: str) -> pd.DataFrame:
     df.loc[df['Colore'] == 'Green', 'Down_shadow'] = df['Open'] - df['Low']
     df.loc[(df['Colore'] == 'Red') | (df['Colore'] == 'Grey'), 'Down_shadow'] = df['Close'] - df['Low']
     df['Total'] = df['High'] - df['Low']
+    #find local min a max prices
     loc_min_max = []
-    
     for tic in range(len(df)):
         if tic == 0 or tic == len(df)-1:
             loc_min_max.append(np.nan)          
@@ -76,21 +77,30 @@ def test_algorythm(data: pd.DataFrame) -> float:
     bought = False
     sold = False
     
-    for candle in range(data.shape[0]):
+    for candle in range(WARM_UP_PERIOD, data.shape[0]):
         condition_to_buy, condition_to_sell = conditions(data, candle)
         if not bought and not sold:
             if condition_to_buy:
+                
+                mpf.plot(data.iloc[:candle,:],type='candle', volume=False)
+                mpf.show()  
+                
                 buy_price = data.iloc[candle+1]['Open'] #open price of the next candle
                 buy_orders.append(buy_price)
                 sell_orders.append(np.nan)
                 bought = True
-                stop_loss = min([data['Local_min_value']]) #local min low price of 10 candles before and current
-                take_profit = max(max([data.iloc[x, 'Close'] for x in range(candle-20, candle)]), buy_price+(buy_price-stop_loss)*2) #local max Close price of 20 candles before or 2*stop_loss
+                stop_loss = min([data.iloc[:candle]['Local_min_value'].dropna().to_list()[-1], data.iloc[candle]['Low']]) 
+                take_profit = max([data.iloc[:candle]['Local_max_value'].dropna().to_list()[-1], buy_price+(buy_price-stop_loss)*2]) 
             elif condition_to_sell:
-                sell_price = data.iloc[candle]['Close']
+                mpf.plot(data.iloc[:candle,:],type='candle', volume=False)
+                mpf.show()
+
+                sell_price = data.iloc[candle+1]['Close']
                 buy_orders.append(np.nan)
                 sell_orders.append(sell_price)
                 sold = True
+                stop_loss =  max([data.iloc[:candle]['Local_max_value'].dropna().to_list()[-1], data.iloc[candle]['High']])
+                take_profit = min([data.iloc[:candle]['Local_min_value'].dropna().to_list()[-1], sell_price-(stop_loss - sell_price)*2])
             else:
                 sell_orders.append(np.nan)
                 buy_orders.append(np.nan)
@@ -122,7 +132,7 @@ def test_algorythm(data: pd.DataFrame) -> float:
     
                 
             
-    return deals, buy_orders, sell_orders 
+    
 
 data = get_data('Data\RTS\SPFB.RTS_200115_230322(15).txt')
 test_algorythm(data)
