@@ -3,6 +3,8 @@ import numpy as np
 import mplfinance as mpf
 import matplotlib.pyplot as plt
 import os
+from stock_indicators import Quote
+from stock_indicators import indicators
 
 TRAILING_STOP = False
 WARM_UP_PERIOD = 14
@@ -10,14 +12,19 @@ WARM_UP_PERIOD = 14
 def conditions(data: pd.DataFrame, current: int) -> bool:
     
     condition_to_buy = all([
-    data.iloc[current]['Body'] <= 0.4 * data.iloc[current]['Total'],
-    data.iloc[current]['Down_shadow'] >= 0.5 * data.iloc[current]['Total']
-    #data.iloc[current]['Colore'] == any(['Red','Grey'])
+    data.iloc[current]['Up_shadow'] <= 0.1 * data.iloc[current]['Total'],
+    data.iloc[current]['Down_shadow'] >= 0.6 * data.iloc[current]['Total'],
+    data.iloc[current]['Close'] < data.iloc[current-1]['Close'],
+    data.iloc[current]['Close'] < data.iloc[current-2]['Close'], 
+    data.iloc[current]['Volume'] >= 1000
+    
     ])
     condition_to_sell = all([
-    data.iloc[current]['Body'] <= 0.4 * data.iloc[current]['Total'],
-    data.iloc[current]['Up_shadow'] >= 0.5 * data.iloc[current]['Total']
-    #data.iloc[current]['Colore'] == any(['Green','Grey'])
+    data.iloc[current]['Down_shadow'] <= 0.1 * data.iloc[current]['Total'],
+    data.iloc[current]['Up_shadow'] >= 0.6 * data.iloc[current]['Total'],
+    data.iloc[current]['Close'] > data.iloc[current-1]['Close'],
+    data.iloc[current]['Close'] > data.iloc[current-2]['Close'], 
+    data.iloc[current]['Volume'] >= 1000
     ])
     return condition_to_buy, condition_to_sell
 
@@ -40,7 +47,7 @@ def get_data(path: str) -> pd.DataFrame:
     #set index to timestamp object
     df = df.set_index('Date')
     #drop useless columns
-    df = df.iloc[30000:,3:]
+    df = df.iloc[:,3:]
     #add special columns with information about candles
     df['Body'] = df['Close'] - df['Open']
     df['Colore'] = df['Body'].apply(lambda x: 'Red' if x < 0 else 'Green' if x > 0 else "Grey")
@@ -63,71 +70,135 @@ def get_data(path: str) -> pd.DataFrame:
             loc_min_max.append(np.nan)           
     df['Local_min_max'] = loc_min_max  
     df.loc[df['Local_min_max'] == 'max', 'Local_max_value'] = df['High'] 
-    df.loc[df['Local_min_max'] == 'min', 'Local_min_value'] = df['Low']    
+    df.loc[df['Local_min_max'] == 'min', 'Local_min_value'] = df['Low']   
+    df['Date'] = df.index
+
+    quotes = [
+    Quote(d,o,h,l,c,v) 
+    for d,o,h,l,c,v 
+    in zip(df['Date'], df['Open'], df['High'], df['Low'], df['Close'], df['Volume'])
+    ] 
+    results = indicators.get_rsi(quotes, 14)
+    df['RSI'] = results
     return df
 
+
+def rsi_indicator(data: pd.DataFrame, period: int = 14) -> list: 
+    pass
 
 def plot_chart(data: pd.DataFrame):
     pass
 
 
 def test_algorythm(data: pd.DataFrame) -> float:
-    buy_orders = []
-    sell_orders = []
+    buy_orders = [np.nan for _ in range(WARM_UP_PERIOD)]
+    sell_orders = [np.nan for _ in range(WARM_UP_PERIOD)]
     bought = False
     sold = False
+    deposit = 0
     
-    for candle in range(WARM_UP_PERIOD, data.shape[0]):
+    for candle in range(WARM_UP_PERIOD, len(data)):
         condition_to_buy, condition_to_sell = conditions(data, candle)
         if not bought and not sold:
-            if condition_to_buy:
-                
-                mpf.plot(data.iloc[:candle,:],type='candle', volume=False)
-                mpf.show()  
-                
-                buy_price = data.iloc[candle+1]['Open'] #open price of the next candle
+            if condition_to_buy:                                           
+                buy_price = data.iloc[candle]['Close'] #open price of the next candle
                 buy_orders.append(buy_price)
                 sell_orders.append(np.nan)
                 bought = True
                 stop_loss = min([data.iloc[:candle]['Local_min_value'].dropna().to_list()[-1], data.iloc[candle]['Low']]) 
-                take_profit = max([data.iloc[:candle]['Local_max_value'].dropna().to_list()[-1], buy_price+(buy_price-stop_loss)*2]) 
+                take_profit = buy_price+(buy_price-stop_loss)*2 
+                
             elif condition_to_sell:
-                mpf.plot(data.iloc[:candle,:],type='candle', volume=False)
-                mpf.show()
-
-                sell_price = data.iloc[candle+1]['Close']
+                sell_price = data.iloc[candle]['Close']
                 buy_orders.append(np.nan)
                 sell_orders.append(sell_price)
                 sold = True
                 stop_loss =  max([data.iloc[:candle]['Local_max_value'].dropna().to_list()[-1], data.iloc[candle]['High']])
-                take_profit = min([data.iloc[:candle]['Local_min_value'].dropna().to_list()[-1], sell_price-(stop_loss - sell_price)*2])
+                take_profit = sell_price-(stop_loss - sell_price)*3
+
+                
             else:
                 sell_orders.append(np.nan)
                 buy_orders.append(np.nan)
 
         elif bought:
-            if condition_to_sell:
-                pass
-            elif stop_loss:
-                pass
-            elif take_profit:
-                pass
+            if candle == len(data):
+                sell_price = data.iloc[candle]['Close']
+                buy_orders.append(np.nan)
+                sell_orders.append(sell_price)
+                bought = False
+                deposit += sell_price - buy_price
+
+            #if bought and condition to sell then sell two lots at once
+            elif condition_to_sell:
+                #sell old contract
+                sell_price = data.iloc[candle]['Close']
+                buy_orders.append(np.nan)
+                sell_orders.append(sell_price)
+                bought = False
+                deposit += sell_price - buy_price
+                #sell additional contact and set stop_loss and take_profit
+                sold = True
+                stop_loss =  max([data.iloc[:candle]['Local_max_value'].dropna().to_list()[-1], data.iloc[candle]['High']])
+                take_profit = sell_price-(stop_loss - sell_price)*3
+                
+            elif data.iloc[candle]['Low'] <= stop_loss:               
+                buy_orders.append(np.nan)
+                sell_orders.append(stop_loss)
+                bought = False
+                deposit += stop_loss - buy_price
+            elif data.iloc[candle]['High'] >= take_profit:
+                buy_orders.append(np.nan)
+                sell_orders.append(take_profit)
+                bought = False
+                deposit += take_profit - buy_price
             else:
                 sell_orders.append(np.nan)
                 buy_orders.append(np.nan)
 
         else:
-            if condition_to_buy:
-                pass
-            elif stop_loss:
-                pass
-            elif take_profit:
-                pass
+            if candle == len(data):
+                buy_price = data.iloc[candle]['Close']
+                buy_orders.append(buy_price)
+                sell_orders.append(np.nan)
+                sold = False
+                deposit += sell_price - buy_price 
+            #if sold and condition to buy then buy two lots at once
+            elif condition_to_buy:
+                #buy old contract
+                buy_price = data.iloc[candle]['Close']
+                buy_orders.append(buy_price)
+                sell_orders.append(np.nan)
+                sold = False
+                deposit += sell_price - buy_price
+                #buy additional contact and set stop_loss and take_profit
+                bought = True
+                stop_loss = min([data.iloc[:candle]['Local_min_value'].dropna().to_list()[-1], data.iloc[candle]['Low']]) 
+                take_profit = buy_price+(buy_price-stop_loss)*2
+                 
+            elif data.iloc[candle]['High'] >= stop_loss:
+                buy_orders.append(stop_loss)
+                sell_orders.append(np.nan)
+                sold = False
+                deposit +=  sell_price - stop_loss
+            elif data.iloc[candle]['Low'] <= take_profit:
+                buy_orders.append(np.nan)
+                sell_orders.append(take_profit)
+                sold = False
+                deposit += sell_price - take_profit
             else:
                 sell_orders.append(np.nan)
                 buy_orders.append(np.nan)
 
+    add = ([
+        mpf.make_addplot(sell_orders,type='scatter',markersize=100,marker='v'),
+        mpf.make_addplot(buy_orders,type='scatter',markersize=100,marker='^')
+    ])
 
+    mpf.plot(data,type='candle', volume=False, addplot=add)
+    mpf.show()  
+
+    return deposit  
             
     
                 
@@ -135,7 +206,7 @@ def test_algorythm(data: pd.DataFrame) -> float:
     
 
 data = get_data('Data\RTS\SPFB.RTS_200115_230322(15).txt')
-test_algorythm(data)
+print(test_algorythm(data))
 
 """ apdict = ([
     mpf.make_addplot(data['Local_min_value'],type='scatter',markersize=100,marker='^'),
@@ -144,5 +215,5 @@ test_algorythm(data)
 
 mpf.plot(data.iloc[:,:-1],type='candle', volume=False, addplot=apdict)
 mpf.show() 
- """
+"""
 
