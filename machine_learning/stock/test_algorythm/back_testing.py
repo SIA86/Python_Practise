@@ -16,7 +16,8 @@ def conditions(data: pd.DataFrame, current: int) -> bool:
     data.iloc[current]['Down_shadow'] >= 0.6 * data.iloc[current]['Total'],
     data.iloc[current]['Close'] < data.iloc[current-1]['Close'],
     data.iloc[current]['Close'] < data.iloc[current-2]['Close'], 
-    data.iloc[current]['Volume'] >= 1000
+    data.iloc[current]['Volume'] >= 1000,
+    data.iloc[current]['RSI'] <= 30
     
     ])
     condition_to_sell = all([
@@ -24,7 +25,8 @@ def conditions(data: pd.DataFrame, current: int) -> bool:
     data.iloc[current]['Up_shadow'] >= 0.6 * data.iloc[current]['Total'],
     data.iloc[current]['Close'] > data.iloc[current-1]['Close'],
     data.iloc[current]['Close'] > data.iloc[current-2]['Close'], 
-    data.iloc[current]['Volume'] >= 1000
+    data.iloc[current]['Volume'] >= 1000,
+    data.iloc[current]['RSI'] >= 70
     ])
     return condition_to_buy, condition_to_sell
 
@@ -71,15 +73,21 @@ def get_data(path: str) -> pd.DataFrame:
     df['Local_min_max'] = loc_min_max  
     df.loc[df['Local_min_max'] == 'max', 'Local_max_value'] = df['High'] 
     df.loc[df['Local_min_max'] == 'min', 'Local_min_value'] = df['Low']   
-    df['Date'] = df.index
+    
 
     quotes = [
     Quote(d,o,h,l,c,v) 
     for d,o,h,l,c,v 
-    in zip(df['Date'], df['Open'], df['High'], df['Low'], df['Close'], df['Volume'])
+    in zip( df.index,
+            df['Open'].apply(lambda x: int(x)),
+            df['High'].apply(lambda x: int(x)),
+            df['Low'].apply(lambda x: int(x)),
+            df['Close'].apply(lambda x: int(x)),
+            df['Volume'].apply(lambda x: int(x)))
     ] 
     results = indicators.get_rsi(quotes, 14)
-    df['RSI'] = results
+    df["RSI"] = [results[x].rsi for x in range(len(results))]
+    
     return df
 
 
@@ -209,11 +217,12 @@ data = get_data('Data\RTS\SPFB.RTS_200115_230322(15).txt')
 print(test_algorythm(data))
 
 """ apdict = ([
-    mpf.make_addplot(data['Local_min_value'],type='scatter',markersize=100,marker='^'),
-    mpf.make_addplot(data['Local_max_value'],type='scatter',markersize=100,marker='v')
+    mpf.make_addplot(data['Local_min_value'],type='scatter',markersize=100,marker='^',panel=0),
+    mpf.make_addplot(data['Local_max_value'],type='scatter',markersize=100,marker='v', panel=0),
+    mpf.make_addplot(data['RSI'],panel=1)
 ])
 
 mpf.plot(data.iloc[:,:-1],type='candle', volume=False, addplot=apdict)
-mpf.show() 
-"""
+mpf.show() """ 
+
 
