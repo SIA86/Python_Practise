@@ -11,22 +11,36 @@ WIN_SIZE = 20
 def get_data(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
     df = df.dropna()  #drop all null values
-    df = df[['<OPEN>', '<HIGH>', '<LOW>', '<CLOSE>', '<VOL>']] #drop useless colums
-    df = df.rename(columns={'<OPEN>':'Open', '<HIGH>':'High', '<LOW>':'Low', '<CLOSE>':'Close', '<VOL>':'Volume'})
-    df.index.name = 'Date'   
+    #convert <DATE> and <TIME> columns to datetime format="%Y%m%d%H%M%S"
+    df['<DATE>'] = df['<DATE>'].apply(lambda x: str(x))
+    df['<TIME>'] = df['<TIME>'].apply(lambda x: str(x) if x > 0 else "000000")
+    df['<DATE>'] = df['<DATE>'] + df['<TIME>']
+    df['<DATE>'] = pd.to_datetime(df['<DATE>'], format="%Y%m%d%H%M%S")
+    df = df.rename(columns={'<DATE>': 'Date',
+                            '<OPEN>': 'Open',
+                            '<HIGH>': 'High',
+                            '<LOW>': 'Low',
+                            '<CLOSE>': 'Close',
+                            '<VOL>': 'Volume'}
+                        )
+    #set index to timestamp object
+    df = df.set_index('Date')
+    df.index.name = 'Date'  
+    #drop useless columns
+    df = df.iloc[:,3:] 
     global normalized
     normalized = max(df['High']) #create general normalisation coefficient 
     df= df/normalized #apply n. coeficient to price colums
-    #df['Volume'] = df['Volume']/max(df['Volume']) 
     return df
 
 
 def dataset(data: pd.DataFrame, batch_size: int = 50) -> tf.data.Dataset:
     dataset = tf.data.Dataset.from_tensor_slices(data)
-    dataset = dataset.window(WIN_SIZE +1, shift = 1, drop_remainder=True)
-    dataset = dataset.flat_map(lambda x: x.batch(WIN_SIZE+1))
+    dataset = dataset.window(WIN_SIZE + 5, shift = 1, drop_remainder=True)
+    dataset = dataset.flat_map(lambda x: x.batch(WIN_SIZE+10))
     dataset = dataset.shuffle(1000)
-    dataset = dataset.map(lambda x: (x[:-1], x[-1][3]))
+    
+    dataset = dataset.map(lambda x: (x[:-5], sum([x[-5][3], x[-4][3], x[-3][3], x[-2][3], x[-1][3]])/5))
     dataset = dataset.batch(batch_size).prefetch(1)
     return dataset
 
@@ -71,7 +85,7 @@ def create_model() -> tf.keras.models.Sequential:
 def plot_loss(model: tf.keras.models.Sequential) -> None:
     plt.figure(figsize=(10, 6))
     #ax.set_xlim(xmin=0)
-    plt.plot(model.history['mae'], label='MSE')
+    plt.plot(model.history['mse'], label='MSE')
     plt.plot(model.history['loss'], label='HUBER')
     plt.legend()
     plt.show()
@@ -85,7 +99,7 @@ def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> pd.
     forecast = model.predict(ds)
     df = data.copy()
     
-    df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('1 day')))  
+    df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('15 min')))  
     empty_rows = np.array([[np.NAN] for _ in range(WIN_SIZE)])
     forecast = np.concatenate((empty_rows, forecast))
     df['Predicted_close'] = forecast
@@ -96,8 +110,8 @@ def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> pd.
 
 def main():
     print('loading data')
-    data = get_data(f'Data{os.sep}RTS{os.sep}SPFB.RTS_200115_230322(15).txt') #get data from given csv file
-    size = int(data.shape[0]*SPLIT)
+    data = get_data(f'Data\RTS\SPFB.RTS_200115_230322(15).txt') #get data from given csv file
+    size = int(len(data)*SPLIT)
     try:
         print('Trying to load predictions')
         data_with_predictions = pd.read_csv('data_with_predictions.csv', index_col=0, parse_dates=True )
@@ -106,17 +120,19 @@ def main():
         #plot_chart(data, start = 0, end = None, volume = True)
         
         try:
-            model = tf.keras.models.load_model('model.model.keras.128nn.15min')
             print('Loading trained model')
+            model = tf.keras.models.load_model('model.keras.128nn.15min_average')
+            print(f'Loaded successfully')
             
         except Exception as e:
             print('No saved model')
             train_set, validation_set, test_set = split_data(data, size) #split data to train, validation and test parts
             model = create_model() #create model
             history = model.fit(train_set, epochs=15, validation_data = validation_set) #fit model
-            plot_loss(history)
-            model.save('model.model.keras.128nn.15min')
+            
+            model.save('model.keras.128nn.15min_average')
             model.evaluate(test_set, batch_size=50)
+            plot_loss(history)
 
         data_with_predictions = model_forecast(model, data[size:])
     print('plotting...')
