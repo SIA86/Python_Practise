@@ -7,8 +7,8 @@ import tensorflow as tf
 
 #path and filenames
 PATH = f'Data{os.sep}SI{os.sep}SPFB.Si_200115_230322_15min.csv'
-KERAS_MODEL_NAME = 'SI_model.keras.128x5nn.15min'
-PREDICTION_NAME = 'SI_data_with_predictions_15min.csv'
+KERAS_MODEL_NAME = 'SI_model.keras.1024-64x5nn.15min'
+PREDICTION_NAME = 'SI_data_with_predictions_512-32x5nn.15min.csv'
 
 #options
 SPLIT = 0.8 #size of training set
@@ -43,18 +43,18 @@ def split_and_normalize_data(data: pd.DataFrame, size: int) -> pd.DataFrame:
     val_df = data[int(size*0.8):size]
     test_df = data[size:]
     #count mean ans std for tarin_df and save it
-    train_mean = train_df.mean()
-    train_std = train_df.std()
+    data_min =data.min()
+    data_max = data.max()
     norm_coeff = pd.DataFrame({
-        "train_mean": train_mean,
-        "train_std": train_std
+        "data_min": data_min,
+        "data_max": data_max
         })
     norm_coeff.to_csv('normalisation_coefficient.csv')
 
     #nornalize data
-    train_df = (train_df-train_mean)/train_std
-    val_df = (val_df-train_mean)/train_std
-    test_df = (test_df-train_mean)/train_std
+    train_df = (train_df-data_min)/(data_max-data_min)
+    val_df = (val_df-data_min)/(data_max-data_min)
+    test_df = (test_df-data_min)/(data_max-data_min)
 
     return train_df, val_df, test_df
 
@@ -73,15 +73,15 @@ def create_uncompiled_model() -> tf.keras.models.Sequential:
     # define a sequential model
     model = tf.keras.models.Sequential([ 
         #tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis=-1, input_shape=[None])),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(512, return_sequences=True)),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(256, return_sequences=True)),
         tf.keras.layers.Dropout(0.3),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
         tf.keras.layers.Dropout(0.3),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64, return_sequences=True)),
         tf.keras.layers.Dropout(0.3),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
-        tf.keras.layers.Dropout(0.3),
-        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32)),
         tf.keras.layers.Dropout(0.3),
         tf.keras.layers.Dense(1)
     ]) 
@@ -93,7 +93,7 @@ def create_model() -> tf.keras.models.Sequential:
     tf.random.set_seed(51)
     model = create_uncompiled_model()
     model.compile(loss=tf.keras.losses.Huber(),
-                  optimizer=tf.keras.optimizers.Adam(learning_rate=0.003),
+                  optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
                   metrics=tf.keras.metrics.MeanAbsoluteError())
     
     return model 
@@ -110,21 +110,20 @@ def plot_loss(model: tf.keras.models.Sequential) -> None:
 
 def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> pd.DataFrame:
     normalisation_df  = pd.read_csv('normalisation_coefficient.csv', index_col=0)
-    train_mean = normalisation_df['train_mean']
-    train_std = normalisation_df['train_std']
-    norm_data = (data-train_mean)/train_std
+    data_min = normalisation_df['data_min']
+    data_max = normalisation_df['data_max']
+    norm_data = (data-data_min)/(data_max-data_min)
     ds = tf.data.Dataset.from_tensor_slices(norm_data)
     ds = ds.window(WIN_SIZE, shift=1, drop_remainder=True)
     ds = ds.flat_map(lambda w: w.batch(WIN_SIZE))
     ds = ds.batch(32).prefetch(1)
     forecast = model.predict(ds)
-    forecast = forecast*train_std.loc['Close'] + train_mean.loc['Close']
+    forecast = forecast*(data_max.loc['Close'] - data_min.loc['Close']) + data_min.loc['Close']
     df = data.copy()
     df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('15 min')))  
     empty_rows = np.array([[np.NAN] for _ in range(WIN_SIZE)])
     forecast = np.concatenate((empty_rows, forecast))
     df['Predicted_close'] = forecast
-    
     df.to_csv(PREDICTION_NAME)
     return df
 
@@ -153,7 +152,7 @@ def main():
             #model.summary()
             model.save(KERAS_MODEL_NAME)
             model.evaluate(test_set, batch_size=50)
-            plot_loss(history)
+            #plot_loss(history)
 
         data_with_predictions = model_forecast(model, data)
     print('plotting...')
