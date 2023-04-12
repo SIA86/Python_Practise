@@ -42,7 +42,7 @@ def split_and_normalize_data(data: pd.DataFrame, size: int) -> pd.DataFrame:
     train_df = data[:int(size*0.8)]
     val_df = data[int(size*0.8):size]
     test_df = data[size:]
-    #count mean ans std for tarin_df and save it
+    #count min ans max for tarin_df and save it
     data_min =data.min()
     data_max = data.max()
     norm_coeff = pd.DataFrame({
@@ -63,9 +63,8 @@ def dataset(data: pd.DataFrame, batch_size: int = 50) -> tf.data.Dataset:
     dataset = tf.data.Dataset.from_tensor_slices(data)
     dataset = dataset.window(WIN_SIZE + 1, shift = 1, drop_remainder=True)
     dataset = dataset.flat_map(lambda x: x.batch(WIN_SIZE + 1))
-    dataset = dataset.shuffle(1000)
-    
-    dataset = dataset.map(lambda x: (x[:-1], x[-1][3]))
+    dataset = dataset.shuffle(1000) 
+    dataset = dataset.map(lambda x: (x[:-1], x[-1][3]))  #split data to trainig and label block
     dataset = dataset.batch(batch_size).prefetch(1)
     return dataset
 
@@ -84,8 +83,7 @@ def create_uncompiled_model() -> tf.keras.models.Sequential:
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32)),
         tf.keras.layers.Dropout(0.3),
         tf.keras.layers.Dense(1)
-    ]) 
-  
+    ])  
     return model
 
 
@@ -94,8 +92,7 @@ def create_model() -> tf.keras.models.Sequential:
     model = create_uncompiled_model()
     model.compile(loss=tf.keras.losses.Huber(),
                   optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-                  metrics=tf.keras.metrics.MeanAbsoluteError())
-    
+                  metrics=tf.keras.metrics.MeanAbsoluteError())  
     return model 
 
 
@@ -109,54 +106,51 @@ def plot_loss(model: tf.keras.models.Sequential) -> None:
 
 
 def model_forecast(model: tf.keras.models.Sequential, data: pd.DataFrame) -> pd.DataFrame:
-    normalisation_df  = pd.read_csv('normalisation_coefficient.csv', index_col=0)
+    normalisation_df  = pd.read_csv('normalisation_coefficient.csv', index_col=0) #load normalisation coefficient
     data_min = normalisation_df['data_min']
     data_max = normalisation_df['data_max']
-    norm_data = (data-data_min)/(data_max-data_min)
+    norm_data = (data-data_min)/(data_max-data_min) #normilize data
     ds = tf.data.Dataset.from_tensor_slices(norm_data)
     ds = ds.window(WIN_SIZE, shift=1, drop_remainder=True)
     ds = ds.flat_map(lambda w: w.batch(WIN_SIZE))
     ds = ds.batch(32).prefetch(1)
-    forecast = model.predict(ds)
+    forecast = model.predict(ds) #get prediction from given data
     forecast = forecast*(data_max.loc['Close'] - data_min.loc['Close']) + data_min.loc['Close']
-    df = data.copy()
-    df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('15 min')))  
+    df = data.copy() #copy data to get datetime index
+    df = df.append(pd.Series(name = max(df.index) + pd.Timedelta('15 min')))  #add one additional row for forecast
     empty_rows = np.array([[np.NAN] for _ in range(WIN_SIZE)])
-    forecast = np.concatenate((empty_rows, forecast))
-    df['Predicted_close'] = forecast
+    forecast = np.concatenate((empty_rows, forecast)) #massage forecast data in order to have same length
+    df['Predicted_close'] = forecast #paste forecast array to dataframe
     df.to_csv(PREDICTION_NAME)
     return df
 
 
 def main():
-    print('loading data')
-    data = get_data(PATH)  #get data from given csv file
-    size = int(len(data)*SPLIT)
     try:
         print('Trying to load predictions')
         data_with_predictions = pd.read_csv(PREDICTION_NAME, index_col=0, parse_dates=True )
     except Exception as e:
         print('No predictions found')
-        #plot_chart(data, start = 0, end = None, volume = True)
-        
+        #plot_chart(data, start = 0, end = None, volume = True)  
         try:
             print('Loading trained model')
             model = tf.keras.models.load_model(KERAS_MODEL_NAME)
-            print(f'Loaded successfully')
-            
-        except Exception as e:
+            print(f'Loaded successfully')          
+        except Exception:
             print('No saved model')
+            print('loading data')
+            data = get_data(PATH)  #get data from given csv file
+            size = int(len(data)*SPLIT)
             train_set, validation_set, test_set = map(dataset, split_and_normalize_data(data, size)) 
             model = create_model() #create model
             history = model.fit(train_set, epochs=15, validation_data = validation_set) #fit model
             #model.summary()
             model.save(KERAS_MODEL_NAME)
             model.evaluate(test_set, batch_size=50)
-            #plot_loss(history)
+            plot_loss(history)
 
-        data_with_predictions = model_forecast(model, data)
+        data_with_predictions = model_forecast(model, data) #get prediction
     print('plotting...')
-
     apdict = mpf.make_addplot((data_with_predictions['Predicted_close']))
     mpf.plot(data_with_predictions.iloc[:,:-1],type='candle', volume=False, addplot=apdict)
     mpf.show()
