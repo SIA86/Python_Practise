@@ -9,15 +9,14 @@ class Statistics:
             self.depo_sells = 0
 
         def __str__(self):
-            return f"""
-            Deposit: {self.deposit}
-            Profit from buy orders: {self.depo_buys}
-            Profit from sell orders: {self.depo_sells}
-            Total number of deals: {self.total} (B:{self.buys}/S:{self.sells})
-            Win rate of buy orders: {self.buy_rate:.2f}%
-            Win rate of sell orders: {self.sell_rate:.2f}%
-            Total rate: {self.total_rate:.2f}%
-            """
+            return '/n'.join([
+            f'Deposit: {self.deposit}',
+            f'Profit from buy orders: {self.depo_buys}',
+            f'Profit from sell orders: {self.depo_sells}',
+            f'Total number of deals: {self.total} (B:{self.buys}/S:{self.sells})',
+            f'Win rate of buy orders: {self.buy_rate:.2f}%',
+            f'Win rate of sell orders: {self.sell_rate:.2f}%',
+            f'Total rate: {self.total_rate:.2f}%'])
 
         @property
         def total(self):
