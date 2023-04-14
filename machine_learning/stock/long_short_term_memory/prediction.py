@@ -148,7 +148,6 @@ def main():
             model.save(KERAS_MODEL_NAME)
             model.evaluate(test_set, batch_size=50)
             plot_loss(history)
-
         data_with_predictions = model_forecast(model, data) #get prediction
     print('plotting...')
     apdict = mpf.make_addplot((data_with_predictions['Predicted_close']))

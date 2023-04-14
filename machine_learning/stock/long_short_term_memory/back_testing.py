@@ -8,7 +8,7 @@ from stock_indicators import indicators
 from statistic import Statistics
 
 
-PATH = "SI_data_with_predictions_512-32x5nn.15min.csv"
+PATH = "SI_data_with_predictions_512-32x5nn.15min_small.csv"
 TRAILING_STOP = True
 WARM_UP_PERIOD = 35
 COEFFICIENT = 10
@@ -20,31 +20,43 @@ def conditions(data: pd.DataFrame, current: int) -> bool:
     loc_max_value_list = data.iloc[:current]['Local_max_value'].dropna().to_list()
     condition_to_buy = all([
         current != len(data)-1,
+        data.iloc[current]['Rates'] >= data.iloc[current-1]['Rates'],
+               
         data.iloc[current]['Rates'] >= 0.002,
         data.iloc[current]['Rates'] <= 0.1,
-        data.iloc[current]['ema_fast'] > data.iloc[current]['ema_slow'],       
+        data.iloc[current]['ema_fast'] > data.iloc[current]['ema_slow'], 
+        #abs(data.iloc[current]['ema_fast'] - data.iloc[current]['ema_slow']) > 10, 
+         
         #data.iloc[current+1]['Predicted_close'] > data.iloc[current]['Predicted_close'],        
         #any([data.iloc[current-i]['Down_shadow'] >= 0.6 * data.iloc[current-i]['Total'] for i in range(5)]),
         #loc_min_value_list[-3] > loc_min_value_list[-2], 
         #loc_min_value_list[-2] < loc_min_value_list[-1],                                 
-        data.iloc[current]['RSI_slow'] < 70,             
+        data.iloc[current]['RSI_slow'] < 70,    
+
     ])
     condition_to_sell = all([       
         current != len(data)-1,
+        data.iloc[current]['Rates'] <= data.iloc[current-1]['Rates'],
         data.iloc[current]['Rates'] <= -0.002,
         data.iloc[current]['Rates'] >= -0.1,
         data.iloc[current]['ema_fast'] < data.iloc[current]['ema_slow'],
+        #abs(data.iloc[current]['ema_fast'] - data.iloc[current-1]['ema_fast']) > 100,
+        #abs(data.iloc[current]['ema_fast'] - data.iloc[current]['ema_slow']) > 10,
         data.iloc[current]['RSI_slow'] > 30
         #any([data.iloc[current-i]['Up_shadow'] >= 0.6 * data.iloc[current-i]['Total'] for i in range(5)]),
     ])
     close_bought = any([
         data.iloc[current]['RSI_slow'] >= 75,
-        current == len(data)-1
-        #any([data.iloc[current-i]['Up_shadow'] >= 0.6 * data.iloc[current-i]['Total'] for i in range(5)]),
+        current == len(data)-1,
+        all([
+            data.iloc[current]['Colore'] == 'Red',
+            data.iloc[current]['Rates'] >= 0.2
+        ])          
     ])
     close_sold = any([
         data.iloc[current]['RSI_slow'] <= 25,
-        current == len(data)-1
+        current == len(data)-1,
+        #any([data.iloc[current-i]['Down_shadow'] >= 0.7 * data.iloc[current-i]['Total'] for i in range(5)]),
     ])
     return condition_to_buy, condition_to_sell, close_bought, close_sold
 
@@ -95,19 +107,19 @@ def get_data(path: str) -> pd.DataFrame:
             df.iloc[:-1]['Volume'].apply(lambda x: int(x)))
     ] 
     rsi_slow = indicators.get_rsi(quotes, WARM_UP_PERIOD)
-    rsi_fast = indicators.get_rsi(quotes, 7)  
+    ema_super_fast = indicators.get_ema(quotes, 15)  
     ema_fast = indicators.get_ema(quotes, 50)
     ema_slow = indicators.get_ema(quotes, 100)
     rsi_slow_list= [rsi_slow[x].rsi for x in range(len(rsi_slow))]
-    rsi_fast_list= [rsi_fast[x].rsi for x in range(len(rsi_fast))]
+    ema_super_fast_list= [ema_super_fast[x].ema for x in range(len(ema_super_fast))]
     ema_fast_list = [ema_fast[x].ema for x in range(len(ema_fast))]
     ema_slow_list = [ema_slow[x].ema for x in range(len(ema_slow))]
     rsi_slow_list.append(np.nan)
-    rsi_fast_list.append(np.nan)
+    ema_super_fast_list.append(np.nan)
     ema_fast_list.append(np.nan)
     ema_slow_list.append(np.nan)
     df["RSI_slow"] = rsi_slow_list
-    df["RSI_fast"] = rsi_fast_list
+    df["ema_super_fast"] = ema_super_fast_list
     df["ema_fast"] = ema_fast_list
     df["ema_slow"] = ema_slow_list    
     return df
@@ -143,7 +155,7 @@ def test_algorythm():
                 sold = True
                 sell_position = candle  #save the position of deal
                 loc_max =  max(data.iloc[:candle]['Local_max_value'].dropna().to_list()[-3:]) #local max of last 3 maximum         
-                stop_loss = max([loc_max, data.iloc[candle]['High']]) + 100
+                stop_loss = max([loc_max, data.iloc[candle]['High']]) + 100 #need to make a dependence from total size of last 50 candles
                 #take_profit = None
             else:
                 sell_orders.append(np.nan)
@@ -182,7 +194,7 @@ def test_algorythm():
                 if TRAILING_STOP: #if trailing stop is not False check conditions to update stop_loss
                     try:
                         new_stop = max(data.iloc[buy_position:candle]['Local_min_value'].dropna().to_list())
-                        stop_loss = max([stop_loss, new_stop-50]) 
+                        stop_loss = max([stop_loss, new_stop-20]) 
                     except:
                         continue
         else: #if sold           
@@ -218,7 +230,7 @@ def test_algorythm():
                 if TRAILING_STOP: #if trailing stop is not False check conditions to update stop_loss
                     try:
                         new_stop = min(data.iloc[sell_position:candle]['Local_max_value'].dropna().to_list())
-                        stop_loss = min([stop_loss, new_stop+50])
+                        stop_loss = min([stop_loss, new_stop+20])
                     except:
                         continue
     print(stat)
@@ -235,6 +247,7 @@ def plot_chart(data: pd.DataFrame, sell_orders: list, buy_orders: list):
     mpf.make_addplot(data.iloc[:-1]['RSI_slow'], panel =1),
     mpf.make_addplot(data.iloc[:-1]['ema_fast'], color = 'r'),
     mpf.make_addplot(data.iloc[:-1]['ema_slow'], color = 'b'), 
+    #mpf.make_addplot(data.iloc[:-1]['ema_super_fast'], color = 'y')
     ])
 
     mpf.plot(data[:-1],type='candle', volume=False, addplot=add, warn_too_much_data=100000)

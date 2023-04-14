@@ -57,4 +57,3 @@ class Statistics:
         def add_win_sells(self):
             self.win_sells += 1
 
-a = Statistics
